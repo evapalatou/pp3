@@ -1,6 +1,7 @@
 import random
 import os
-from datetime import datetime  # Import datetime module
+import time
+from datetime import datetime
 
 # Categories of words for the game
 categories = {
@@ -82,6 +83,50 @@ def display_hangman(tries):
 def get_word(category):
     return random.choice(categories[category]).lower()
 
+# Function to provide hints
+def provide_hint(word):
+    return f"The first letter is '{word[0]}' and the last letter is '{word[-1]}'."
+
+# Function to load scores from file
+def load_scores(filename="scores.txt"):
+    scores = {}
+    if os.path.exists(filename):
+        with open(filename, "r") as file:
+            for line in file:
+                if line.strip():  # Skip empty lines
+                    parts = line.strip().split(":")
+                    if len(parts) == 4:  # Ensure there are exactly four parts
+                        name, total_score, current_score, date_time = parts
+                        try:
+                            scores[name] = (int(total_score), int(current_score), date_time)
+                        except ValueError:
+                            print(f"Invalid score value for {name}: {total_score} or {current_score}. Skipping this entry.")
+                    else:
+                        print(f"Malformed line in scores.txt: {line.strip()}")
+    print("Loaded scores:", scores)  # Debugging statement
+    return scores
+
+# Function to save scores to file
+def save_scores(scores, filename="scores.txt"):
+    with open(filename, "w") as file:
+        for name, (total_score, current_score, date_time) in scores.items():
+            file.write(f"{name}:{total_score}:{current_score}:{date_time}\n")
+    print("Saved scores:", scores)  # Debugging statement
+
+# Function to display leaderboard
+def display_leaderboard(scores):
+    if scores:
+        print("\nLeaderboard:")
+        sorted_scores = sorted(scores.items(), key=lambda item: item[1][0], reverse=True)
+        for rank, (name, (total_score, current_score, date_time)) in enumerate(sorted_scores, 1):
+            print(f"{rank}. {name}: {total_score} total points (last score: {current_score} on {date_time})")
+    else:
+        print("\nNo scores yet.")
+
+# Function to calculate score based on remaining tries
+def calculate_score(tries_left):
+    return tries_left * 10  # Example scoring: 10 points per remaining try
+
 # Function to allow the player to choose a category
 def choose_category():
     print("Choose a category:")
@@ -96,44 +141,6 @@ def choose_category():
                 print("Please enter a valid category number.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-
-# Function to provide hints (first and last letter of the word)
-def provide_hint(word):
-    return f"The first letter is '{word[0]}' and the last letter is '{word[-1]}'."
-
-# Load scores from file, including date and time
-def load_scores(filename="scores.txt"):
-    scores = {}
-    if os.path.exists(filename):
-        with open(filename, "r") as file:
-            for line in file:
-                if line.strip():  # Skip empty lines
-                    try:
-                        name, score, date_time = line.strip().split(":")
-                        scores[name] = (int(score), date_time)
-                    except ValueError:
-                        print(f"Malformed line in scores.txt: {line}")
-    return scores
-
-# Save scores to file with date and time
-def save_scores(scores, filename="scores.txt"):
-    with open(filename, "w") as file:
-        for name, (score, date_time) in scores.items():
-            file.write(f"{name}:{score}:{date_time}\n")
-
-# Display leaderboard with date and time
-def display_leaderboard(scores):
-    if scores:
-        print("\nLeaderboard:")
-        sorted_scores = sorted(scores.items(), key=lambda item: item[1][0], reverse=True)
-        for rank, (name, (score, date_time)) in enumerate(sorted_scores, 1):
-            print(f"{rank}. {name}: {score} points (achieved on {date_time})")
-    else:
-        print("\nNo scores yet.")
-
-# Calculate score based on remaining tries
-def calculate_score(tries_left):
-    return tries_left * 10  # Example scoring: 10 points per remaining try
 
 # Function to play the Hangman game
 def play_hangman():
@@ -151,6 +158,7 @@ def play_hangman():
     tries = 6  # number of tries before the player loses
     guessed_word = ['_'] * len(word)  # current state of guessed word
     hints_available = 1  # Player can use 1 hint per game
+    time_limit = 10  # seconds to guess a letter
 
     print(f"Let's play Hangman! The category is {category.capitalize()}.")
 
@@ -169,7 +177,15 @@ def play_hangman():
                 hints_available -= 1
                 continue
 
-        guess = input('Guess a letter: ').lower()
+        # Timer for guessing
+        start_time = time.time()
+        guess = input(f'Guess a letter (you have {time_limit} seconds): ').lower()
+        elapsed_time = time.time() - start_time
+
+        if elapsed_time > time_limit:
+            print("Time's up! You took too long to guess.")
+            tries -= 1
+            continue
 
         # Input validation: ensure only a single letter is entered
         if len(guess) != 1 or not guess.isalpha():
@@ -196,25 +212,44 @@ def play_hangman():
     # Check if the player won or lost
     if ''.join(guessed_word) == word:
         print(f"Congratulations! You've guessed the word: {word}")
-        score = calculate_score(tries)  # Calculate score based on remaining tries
-        print(f"Your score: {score} points")
+        current_score = calculate_score(tries)  # Calculate score based on remaining tries
+        print(f"Your score: {current_score} points")
     else:
         print(display_hangman(tries))
         print(f"Sorry, you ran out of tries. The word was: {word}")
-        score = 0
+        current_score = 0
 
     # Get the current date and time
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Update and save player score
     if player_name in scores:
-        scores[player_name] = (max(scores[player_name][0], score), current_time)  # Keep the highest score and update the time
+        total_score, _, _ = scores[player_name]
+        total_score += current_score  # Update total score
+        scores[player_name] = (total_score, current_score, current_time)  # Save total and current score
+        print(f"Updated {player_name}'s total score to {total_score}.")  # Debugging statement
     else:
-        scores[player_name] = (score, current_time)
+        scores[player_name] = (current_score, current_score, current_time)  # First entry
+        print(f"Added new player {player_name} with score {current_score}.")  # Debugging statement
+
+    # Save updated scores to file
     save_scores(scores)
 
     # Show leaderboard
     display_leaderboard(scores)
 
-# Run the enhanced game with scoring system and date/time tracking
-play_hangman()
+# Main game loop with restart option
+def main():
+    while True:
+        play_hangman()
+        # Ask if the player wants to play again or exit
+        play_again = input("Do you want to play again or exit? (Type 'play' to play again, 'exit' to leave): ").lower()
+        while play_again not in ['play', 'exit']:
+            play_again = input("Invalid choice. Type 'play' to play again, or 'exit' to leave: ").lower()
+        if play_again == 'exit':
+            print("Thanks for playing! Goodbye.")
+            break  # Exit the game loop and end the program
+
+# Run the game with restart option
+if __name__ == "__main__":
+    main()
