@@ -1,5 +1,4 @@
 import random
-import os
 
 # Categories of words for the game
 categories = {
@@ -89,27 +88,8 @@ def choose_category():
     choice = int(input("Enter the number of the category: ")) - 1
     return list(categories.keys())[choice]
 
-# Load scores from file
-def load_scores(filename="scores.txt"):
-    scores = {}
-    if os.path.exists(filename):
-        with open(filename, "r") as file:
-            for line in file:
-                try:
-                    name, score = line.strip().split(":")
-                    scores[name] = int(score)
-                except ValueError:
-                    print(f"Skipping malformed line: {line.strip()}")  # Debugging output
-    return scores
-
-# Save scores to file
-def save_scores(scores, filename="scores.txt"):
-    with open(filename, "w") as file:
-        for name, score in scores.items():
-            file.write(f"{name}:{score}\n")
-
 # Function to play the Hangman game
-def play_hangman(scores):
+def play_hangman():
     category = choose_category()
     word = get_word(category)
     word_letters = set(word)
@@ -117,7 +97,7 @@ def play_hangman(scores):
     tries = 6
     guessed_word = ['_'] * len(word)
 
-    print(f"\nLet's play Hangman! The category is {category.capitalize()}.")
+    print(f"Let's play Hangman! The category is {category.capitalize()}.")
 
     while tries > 0 and ''.join(guessed_word) != word:
         print(display_hangman(tries))
@@ -146,32 +126,16 @@ def play_hangman(scores):
             tries -= 1
             print(f"Sorry, {guess} is not in the word. You have {tries} tries left.")
 
-    # Score calculation
     if ''.join(guessed_word) == word:
         print(f"Congratulations! You've guessed the word: {word}")
-        score = tries * 10  # 10 points for each try left
-        print(f"Your score: {score} points")
-        return score
     else:
         print(display_hangman(tries))
         print(f"Sorry, you ran out of tries. The word was: {word}")
-        return 0
 
 # Main game loop
 def main():
-    scores = load_scores()
-    player_name = input("Enter your name: ")
-
     while True:
-        score = play_hangman(scores)
-        if player_name in scores:
-            scores[player_name] += score  # Accumulate score
-        else:
-            scores[player_name] = score  # Add new player
-
-        save_scores(scores)  # Save updated scores
-        print(f"Updated Scores: {scores}")  # Debugging output for scores
-
+        play_hangman()
         play_again = input("Do you want to play again? (yes/no): ").lower()
         if play_again != 'yes':
             print("Thanks for playing! Goodbye.")
