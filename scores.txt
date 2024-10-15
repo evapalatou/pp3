@@ -1,1 +1,3 @@
 Evanthia:160
+evanthia:60
+Nathanael:60
